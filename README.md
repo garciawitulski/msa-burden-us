@@ -1,12 +1,28 @@
 # MSA burden US
 
-This repository contains the Stata, R, and Python workflow for estimating the
-premature mortality and productivity burden potentially attributable to
-insufficient muscle-strengthening activity (MSA) among US adults.
+This repository currently contains the Stata, R, and Python workflow for
+estimating the premature mortality and productivity burden potentially
+attributable to insufficient muscle-strengthening activity (MSA) among US
+adults.
 
 Raw and processed data are not versioned. The scripts document how to obtain or
 prepare the required NHIS, mortality, life-table, and productivity inputs, and
 write generated tables, logs, and figures under `outputs/`.
+
+## Code Layout and R/Stata Target
+
+The active model and figure layer is intentionally limited to Stata and R:
+
+- `code/stata/`: NHIS-LMF survival checks and Cox models.
+- `code/r/figures/`: manuscript and supplement figure rendering.
+- `code/python/`: retained for now because it is still the current source for
+  data preparation, burden calculations, external-input handling, validation,
+  and manuscript table formatting.
+
+Legacy R figure scripts, standalone Python figure helpers, and the Python Cox
+fallback have been removed. To make the repository fully R/Stata-only without
+losing reproducibility, the remaining `code/python/` steps should be ported to R
+before that directory is deleted.
 
 ## Research Objective
 
@@ -96,13 +112,6 @@ Refined age-as-time-scale Cox models, before any burden calculations:
 do code/stata/03_refined_cox_models.do
 ```
 
-If Stata is not available, the Python fallback can be run after installing
-`lifelines`:
-
-```powershell
-python code/python/05_preliminary_cox_models.py
-```
-
 ## Processed Outputs
 
 The build and quality scripts create these files in `data/processed/` when raw
@@ -172,11 +181,6 @@ repeats the fully adjusted model in `msa_survival_lag24_completecase.dta`.
 Outputs are designed to be written to `outputs/tables/` as preliminary hazard
 ratio CSVs and plot-ready dose-response data. The scripts do not compute PAFs,
 attributable deaths, years of life lost, life expectancy, or economic costs.
-
-On systems without Stata, `code/python/05_preliminary_cox_models.py` provides a
-`lifelines` fallback. If neither Stata nor `lifelines` is available, the script
-stops and records the missing dependency in `outputs/logs/issues_to_resolve.md`
-instead of fabricating results.
 
 ## Refined Survival Models
 
@@ -325,6 +329,7 @@ python code/python/13_compute_life_expectancy_gain.py
 python code/python/14_compute_productivity_losses.py
 python code/python/17_validate_premature_30_69_outputs.py
 python code/python/12_make_manuscript_tables_figures.py
+Rscript code/r/figures/render_all.R
 ```
 
 For the PCD resubmission figure upload package, run the R figure-export helper
@@ -398,6 +403,7 @@ python code/python/13_compute_life_expectancy_gain.py
 python code/python/14_compute_productivity_losses.py
 python code/python/17_validate_premature_30_69_outputs.py
 python code/python/12_make_manuscript_tables_figures.py
+Rscript code/r/figures/render_all.R
 ```
 
 `09_download_or_prepare_external_mortality_lifetable.py` prepares official
@@ -415,6 +421,7 @@ computes human-capital productivity losses for premature deaths aged 30-69 when
 the ACS API is available; otherwise it creates manual instructions without
 fabricating costs.
 `12_make_manuscript_tables_figures.py` formats the validated survival and burden
-outputs into manuscript-ready tables under `outputs/tables/manuscript/` and
-figures under `outputs/figures/manuscript/`.
+outputs into manuscript-ready tables under `outputs/tables/manuscript/`. Figures
+are rendered from the active R scripts with
+`Rscript code/r/figures/render_all.R`.
 <!-- END EXTERNAL_MORTALITY_YLL -->

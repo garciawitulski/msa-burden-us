@@ -1,8 +1,9 @@
-"""Create manuscript-ready tables and figures for the MSA burden US project.
+"""Create manuscript-ready tables for the MSA burden US project.
 
 This script formats existing survival, prevalence, PAF, deaths, YLL, and
 optional downstream counterfactual outputs. It does not run new models and does
-not calculate productivity losses or costs.
+not calculate productivity losses or costs. Manuscript figures are rendered by
+the R scripts in `code/r/figures/`.
 """
 
 from __future__ import annotations
@@ -14,17 +15,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-try:
-    import matplotlib.pyplot as plt
-except ImportError as exc:  # pragma: no cover - handled at runtime
-    raise SystemExit("matplotlib is required to create manuscript figures. Install matplotlib and rerun.") from exc
-
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TABLE_DIR = PROJECT_ROOT / "outputs/tables"
-FIGURE_DIR = PROJECT_ROOT / "outputs/figures"
 MANUSCRIPT_TABLE_DIR = TABLE_DIR / "manuscript"
-MANUSCRIPT_FIGURE_DIR = FIGURE_DIR / "manuscript"
 PROCESSED_DIR = PROJECT_ROOT / "data/processed"
 
 REFINED_COX = TABLE_DIR / "refined_cox_msa_allcause.csv"
@@ -98,7 +91,6 @@ SEX_ORDER = ["Female", "Male"]
 
 def ensure_dirs() -> None:
     MANUSCRIPT_TABLE_DIR.mkdir(parents=True, exist_ok=True)
-    MANUSCRIPT_FIGURE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def read_required(path: Path, required: list[str] | None = None) -> pd.DataFrame:
@@ -842,159 +834,6 @@ def make_supplementary_table_s4() -> pd.DataFrame:
     return display
 
 
-def save_figure(fig: plt.Figure, name: str) -> None:
-    png = MANUSCRIPT_FIGURE_DIR / f"{name}.png"
-    pdf = MANUSCRIPT_FIGURE_DIR / f"{name}.pdf"
-    fig.savefig(png, dpi=300, bbox_inches="tight")
-    fig.savefig(pdf, bbox_inches="tight")
-    plt.close(fig)
-
-
-def make_figure1(refined: pd.DataFrame) -> None:
-    sub = refined.loc[
-        (refined["dataset"] == "main")
-        & (refined["model_label"] == MAIN_MODEL_LABEL)
-        & (refined["exposure_spec"] == "Original msa_cat5")
-        & (refined["term"].isin(["0b.msa_cat5", "1.msa_cat5", "2.msa_cat5", "3.msa_cat5", "4.msa_cat5"]))
-    ].copy()
-    order = ["0b.msa_cat5", "1.msa_cat5", "2.msa_cat5", "3.msa_cat5", "4.msa_cat5"]
-    labels = ["0", "1", "2", "3-4", "5+"]
-    sub["term"] = pd.Categorical(sub["term"], order, ordered=True)
-    sub = sub.sort_values("term")
-    x = np.arange(len(sub))
-    hr = sub["hazard_ratio"].to_numpy(dtype=float)
-    lo = sub["ci_lower"].to_numpy(dtype=float)
-    hi = sub["ci_upper"].to_numpy(dtype=float)
-    yerr = np.vstack([hr - lo, hi - hr])
-    yerr[:, 0] = 0
-    fig, ax = plt.subplots(figsize=(7.2, 4.8))
-    ax.errorbar(x, hr, yerr=yerr, fmt="o", color="#1b6f8a", ecolor="#1b6f8a", capsize=4, markersize=6)
-    ax.plot(x, hr, color="#1b6f8a", linewidth=1.5)
-    ax.axhline(1, color="#555555", linewidth=1, linestyle="--")
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels)
-    ax.set_ylabel("Hazard ratio for all-cause mortality")
-    ax.set_xlabel("Muscle-strengthening activity frequency, times/week")
-    ax.set_title("Figure 1. Refined dose-response association for MSA frequency")
-    ax.text(
-        0.0,
-        -0.25,
-        "Note: 0 times/week is the reference. The association is non-monotonic and strongest around 2-4 times/week.",
-        transform=ax.transAxes,
-        fontsize=9,
-        va="top",
-    )
-    ax.set_ylim(min(0.78, np.nanmin(lo) - 0.03), max(1.13, np.nanmax(hi) + 0.03))
-    ax.grid(axis="y", color="#dddddd", linewidth=0.8)
-    save_figure(fig, "figure1_dose_response_hr")
-
-
-def stacked_bar(data: pd.DataFrame, value_col: str, ylabel: str, title: str, name: str, age_order: list[str] | None = None) -> None:
-    if age_order is None:
-        age_order = AGE_ORDER
-    plot = data.copy()
-    plot["age_group"] = pd.Categorical(plot["age_group"], age_order, ordered=True)
-    pivot = plot.pivot_table(index="age_group", columns="sex", values=value_col, aggfunc="sum", observed=False).reindex(age_order)
-    pivot = pivot.reindex(columns=SEX_ORDER)
-    fig, ax = plt.subplots(figsize=(7.4, 4.8))
-    bottom = np.zeros(len(pivot))
-    colors = {"Female": "#2f8f83", "Male": "#c46a3a"}
-    for sex in SEX_ORDER:
-        vals = pivot[sex].fillna(0).to_numpy(dtype=float)
-        ax.bar(pivot.index.astype(str), vals, bottom=bottom, label=sex, color=colors[sex])
-        bottom += vals
-    ax.set_ylabel(ylabel)
-    ax.set_xlabel("Age group")
-    ax.set_title(title)
-    ax.legend(frameon=False)
-    ax.grid(axis="y", color="#dddddd", linewidth=0.8)
-    ax.yaxis.set_major_formatter(lambda x, pos: f"{x/1000:,.0f}k")
-    save_figure(fig, name)
-
-
-def make_figures2_3() -> None:
-    contrib = to_numeric(read_required(CONTRIBUTIONS_PREMATURE), ["attributable_deaths", "yll"])
-    stacked_bar(
-        contrib,
-        "attributable_deaths",
-        "Potentially attributable premature deaths",
-        "Figure 2. Potentially attributable premature deaths by age group and sex",
-        "figure2_attributable_deaths_age_sex",
-        PREMATURE_AGE_ORDER,
-    )
-    stacked_bar(
-        contrib,
-        "yll",
-        "Years of life lost",
-        "Figure 3. YLL from potentially attributable premature deaths by age group and sex",
-        "figure3_yll_age_sex",
-        PREMATURE_AGE_ORDER,
-    )
-
-
-def make_figure4() -> None:
-    if not LIFE_GAIN_PREMATURE.exists():
-        return
-    gain = to_numeric(read_required(LIFE_GAIN_PREMATURE), ["observed_temporary_life_expectancy_30_70", "counterfactual_temporary_life_expectancy_30_70"])
-    main = gain.loc[gain["sex"] == "All"].iloc[0]
-    labels = ["Observed", "Counterfactual"]
-    values = [main["observed_temporary_life_expectancy_30_70"], main["counterfactual_temporary_life_expectancy_30_70"]]
-    fig, ax = plt.subplots(figsize=(6.8, 4.6))
-    ax.bar(labels, values, color=["#6f7f8f", "#1b6f8a"])
-    ax.set_ylabel("Temporary life expectancy, years")
-    ax.set_title("Figure 4. Temporary life expectancy from age 30 to 70")
-    for i, value in enumerate(values):
-        ax.text(i, value + 0.05, f"{value:.2f}", ha="center", va="bottom", fontsize=9)
-    ax.grid(axis="y", color="#dddddd", linewidth=0.8)
-    ax.text(
-        0.0,
-        -0.22,
-        "Note: Counterfactual applies age-sex-specific PAFs for insufficient MSA to mortality ages 30-69.",
-        transform=ax.transAxes,
-        fontsize=9,
-        va="top",
-    )
-    save_figure(fig, "figure4_temporary_life_expectancy_30_70")
-
-
-def make_figure5_life_expectancy() -> None:
-    if not PRODUCTIVITY_DETAIL_PREMATURE.exists():
-        return
-    detail = to_numeric(read_required(PRODUCTIVITY_DETAIL_PREMATURE), ["discount_rate", "productive_horizon", "productivity_loss"])
-    detail = detail.loc[
-        (detail["analysis"] == "premature_30_69")
-        & (detail["earnings_measure"] == "pernp_mean")
-        & (detail["productive_horizon"] == 65)
-        & (np.isclose(detail["discount_rate"], 0.03))
-    ].copy()
-    if detail.empty:
-        return
-    stacked_bar(
-        detail,
-        "productivity_loss",
-        "Productivity losses, dollars",
-        "Figure 5. Productivity losses by age group and sex",
-        "figure5_productivity_losses_by_age_sex",
-        PREMATURE_AGE_ORDER,
-    )
-
-
-def make_figure6_productivity() -> None:
-    if not PRODUCTIVITY_DETAIL.exists():
-        return
-    detail = to_numeric(read_required(PRODUCTIVITY_DETAIL), ["discount_rate", "productivity_loss"])
-    detail = detail.loc[(detail["analysis"] == "main_ages_18_64") & (np.isclose(detail["discount_rate"], 0.03))].copy()
-    if detail.empty:
-        return
-    stacked_bar(
-        detail,
-        "productivity_loss",
-        "Productivity losses, dollars",
-        "Figure 6. Productivity losses by age group and sex",
-        "figure6_productivity_losses_by_age_sex",
-    )
-
-
 def optional_counterfactual_summary_text() -> str:
     paragraphs: list[str] = []
     if LIFE_GAIN_PREMATURE.exists() and LIFE_GAIN_MC_PREMATURE.exists():
@@ -1182,13 +1021,9 @@ def main() -> None:
     s3 = make_supplementary_table_s3()
     s4 = make_supplementary_table_s4()
     s5, s6 = make_all_adult_supplement_tables()
-    make_figure1(refined)
-    make_figures2_3()
-    make_figure4()
-    make_figure5_life_expectancy()
     make_summary_report(table2)
     print(f"Created manuscript tables in {MANUSCRIPT_TABLE_DIR.relative_to(PROJECT_ROOT)}")
-    print(f"Created manuscript figures in {MANUSCRIPT_FIGURE_DIR.relative_to(PROJECT_ROOT)}")
+    print("Render manuscript figures with: Rscript code/r/figures/render_all.R")
     print(
         f"Table rows: T1={len(table1)}, T2={len(table2)}, T3={len(table3)}, T4={len(table4)}, "
         f"T5={len(table5)}, S1={len(s1)}, S2={len(s2)}, S3={len(s3)}, S4={len(s4)}, S5={len(s5)}, S6={len(s6)}"
