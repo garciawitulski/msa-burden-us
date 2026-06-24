@@ -6,7 +6,7 @@ capture confirm file "data/processed/msa_survival_full.dta"
 if _rc {
     capture confirm file "../../data/processed/msa_survival_full.dta"
     if _rc {
-        display as error "Could not find data/processed/msa_survival_full.dta. Run the Python build script first."
+        display as error "Could not find data/processed/msa_survival_full.dta. Run Rscript code/r/pipeline/03_build_msa_survival_dataset.R first."
         exit 601
     }
     local data_path "../../data/processed/msa_survival_full.dta"

@@ -5,7 +5,8 @@ set more off
 local project_root "."
 capture confirm file "`project_root'/data/processed/msa_survival_full.dta"
 if _rc {
-    display as error "Could not find data/processed/msa_survival_full.dta. Run the Python build script first from the project root."
+    display as error "Could not find data/processed/msa_survival_full.dta. Run Rscript code/r/pipeline/03_build_msa_survival_dataset.R first from the project root."
+    exit 601
 }
 
 local full_data "`project_root'/data/processed/msa_survival_full.dta"

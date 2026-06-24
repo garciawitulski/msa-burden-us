@@ -7,10 +7,7 @@
 *.bak
 ~$*
 
-# Python/R/Stata caches
-__pycache__/
-*.py[cod]
-.pytest_cache/
+# R/Stata caches
 .ipynb_checkpoints/
 *.smcl
 
