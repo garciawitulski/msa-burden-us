@@ -1,0 +1,50 @@
+# Local credentials and machine state
+.env
+.Rhistory
+.RData
+.Rproj.user/
+*.tmp
+*.bak
+~$*
+
+# Python/R/Stata caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+*.smcl
+
+# Raw and processed data are intentionally not versioned.
+# Recreate them using the documented download/build scripts.
+data/raw/
+data/processed/
+data/external/
+data/interim/
+
+# Generated analysis outputs
+outputs/
+
+# LaTeX and Word build artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.xdv
+
+# Manuscript deliverables and journal-submission exports
+manuscript_latex/
+*.doc
+*.docx
+*.pdf
+submission_pcd/
+
+# Keep source code, LaTeX/Markdown sources, and documentation versioned.
